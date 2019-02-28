@@ -3,7 +3,15 @@
 #include "model.h"
 
 static void check_answer(GtkWidget *widget, gpointer data) {
-    g_print ("Hello World\n");
+    GPtrArray *radio_buttons = (GPtrArray*) data;
+
+    for(int i = 0; i < radio_buttons->len; i++) {
+        gpointer radio_button = g_ptr_array_index(radio_buttons, i);
+
+        if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_button))) {
+            g_print("index is %d\n", i);
+        }
+    }
 }
 
 static GPtrArray* create_radios(GtkContainer *container, GPtrArray *answers) {
@@ -35,11 +43,11 @@ static void activate (GtkApplication *app, gpointer user_data) {
     Question *question = (Question*) user_data;
     GtkWidget *label = gtk_label_new(question->text->str);
     gtk_container_add(GTK_CONTAINER(vbox), label);
-    create_radios(GTK_CONTAINER(vbox), question->answers);
+    GPtrArray *radio_buttons = create_radios(GTK_CONTAINER(vbox), question->answers);
     GtkWidget *button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
     gtk_container_add (GTK_CONTAINER (vbox), button_box);
     GtkWidget *button = gtk_button_new_with_label ("Check");
-    g_signal_connect (button, "clicked", G_CALLBACK (check_answer), NULL);
+    g_signal_connect (button, "clicked", G_CALLBACK (check_answer), radio_buttons);
     gtk_container_add (GTK_CONTAINER (button_box), button);
     gtk_widget_show_all (window);
 }
