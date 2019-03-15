@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "model.h"
+#include "question.h"
 
 Question* question_new(gchar *text) {
     Question *result = calloc(1, sizeof(Question));

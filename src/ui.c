@@ -1,5 +1,5 @@
 #include "ui.h"
-#include "model.h"
+#include "question.h"
 
 typedef struct check_data_s {
     GPtrArray *radio_buttons;
