@@ -2,13 +2,19 @@
 #include "question.h"
 #include "question_generator.h"
 
-static void clear_form(GtkWidget*);
-static void render_question(GtkWidget*, Question*);
-
 typedef struct check_data_s {
     GPtrArray *radio_buttons;
     int correct_answer_index;
 } CheckData;
+
+typedef struct start_callback_data_s {
+    GtkWidget *vbox;
+    QuestionGenerator *question_generator;
+} StartCallbackData;
+
+static void clear_form(GtkWidget*);
+static void render_question(GtkWidget*, QuestionGenerator*);
+static void start_callback(GtkWidget*, gpointer);
 
 static void check_answer(GtkWidget *widget, gpointer data) {
     CheckData *check_data = (CheckData*) data;
@@ -42,9 +48,18 @@ void activate (GtkApplication *app, gpointer user_data) {
     GtkWidget *button = gtk_button_new_with_label ("Start");
     //TODO free
     QuestionGenerator *question_generator = question_generator_new();
-    g_signal_connect (button, "clicked", G_CALLBACK(check_answer), question_generator);
+    StartCallbackData 
+    g_signal_connect (button, "clicked", G_CALLBACK(start_callback), question_generator);
     gtk_container_add (GTK_CONTAINER(button_box), button);
     gtk_widget_show_all (window);
+}
+
+static void start_callback(GtkWidget *widget, gpointer data) {
+    StartCallbackData* callback_data = (StartCallbackData*) data;
+    clear_form(callback_data->vbox);
+    render_question(callback_data->vbox, callback_data->question_generator);
+    gtk_widget_show_all(callback_data->vbox);
+    free(callback_data);
 }
 
 static void clear_form(GtkWidget *vbox) {
@@ -61,7 +76,8 @@ static void clear_form(GtkWidget *vbox) {
     g_list_free(first_child);
 }
 
-static void render_question(GtkWidget *vbox, Question *question) {
+static void render_question(GtkWidget *vbox, QuestionGenerator *question_generator) {
+    Question *question = question_generator_next(question_generator);
     GtkWidget *label = gtk_label_new(question->text->str);
     gtk_box_pack_start(GTK_BOX(vbox), label, TRUE, TRUE, 5);
 
@@ -77,6 +93,8 @@ static void render_question(GtkWidget *vbox, Question *question) {
 
         gtk_box_pack_start(GTK_BOX(vbox), radio, TRUE, TRUE, 5);
     }
+
+    question_free(question);
 
     GtkWidget *button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), button_box, TRUE, TRUE, 5);
