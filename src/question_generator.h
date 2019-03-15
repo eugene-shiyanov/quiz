@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gmodule.h>
+#include "question.h"
 
 typedef struct question_generator_s {
     GPtrArray *questions;
@@ -9,4 +10,4 @@ typedef struct question_generator_s {
 
 QuestionGenerator* question_generator_new(void);
 void question_generator_free(QuestionGenerator*);
-Question* question_generator_next(void);
+Question* question_generator_next(QuestionGenerator*);

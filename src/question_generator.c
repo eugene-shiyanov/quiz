@@ -21,6 +21,13 @@ void question_generator_free(QuestionGenerator* question_generator) {
 
 Question* question_generator_next(QuestionGenerator *question_generator) {
     Question *src = (Question*) g_ptr_array_index(question_generator->questions, question_generator->next_question_index);
+
+    if (question_generator->next_question_index == question_generator->questions->len -1) {
+        question_generator->next_question_index = 0;
+    } else {
+        question_generator->next_question_index++;
+    }
+
     return question_clone(src);
 }
 
@@ -47,13 +54,13 @@ static void question_free_callback(gpointer question, gpointer user_data) {
     question_free((Question*) question);
 }
 
-static Question* question_clone(Question *source) {
-    Question *dest = question_new(source->text->str);
+static Question* question_clone(Question *src) {
+    Question *dest = question_new(src->text->str);
 
-    for (int i = 0; i < source->answers->len; i++) {
-        question_add_answer(dest, ((GString*) g_ptr_array_index(source->answers, i))->str);
+    for (int i = 0; i < src->answers->len; i++) {
+        question_add_answer(dest, ((GString*) g_ptr_array_index(src->answers, i))->str);
     }
 
     question_set_correct_answer_index(dest, src->correct_answer_index);
-    return result;
+    return dest;
 }
