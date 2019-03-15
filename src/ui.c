@@ -2,61 +2,45 @@
 #include "question.h"
 #include "question_generator.h"
 
-typedef struct check_data_s {
-    GPtrArray *radio_buttons;
-    int correct_answer_index;
-} CheckData;
-
-typedef struct start_callback_data_s {
+typedef struct callback_data_s {
     GtkWidget *vbox;
     QuestionGenerator *question_generator;
-} StartCallbackData;
+    int correct_answer_index;
+} CallbackData;
 
 static void clear_form(GtkWidget*);
 static void render_question(GtkWidget*, QuestionGenerator*);
+static void render_result(GtkWidget*, int, QuestionGenerator*);
 static void start_callback(GtkWidget*, gpointer);
+static void verify_callback(GtkWidget*, gpointer);
+static gboolean check_answer(GSList*, int);
+static GSList* extract_rbuttons(GtkWidget*);
 
-static void check_answer(GtkWidget *widget, gpointer data) {
-    CheckData *check_data = (CheckData*) data;
-    GPtrArray *radio_buttons = check_data->radio_buttons;
-    int actual_answer_index;
-
-    for(int i = 0; i < radio_buttons->len; i++) {
-        gpointer radio_button = g_ptr_array_index(radio_buttons, i);
-
-        if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(radio_button))) {
-            actual_answer_index = i;
-            break;
-        }
-    }
-
-    if (check_data->correct_answer_index == actual_answer_index) {
-        g_print("Win\n");
-    } else {
-        g_print("Fail\n");
-    }
-}
-
-void activate (GtkApplication *app, gpointer user_data) {
-    GtkWidget *window = gtk_application_window_new (app);
-    gtk_window_set_title (GTK_WINDOW(window), "Window");
-    gtk_window_set_default_size (GTK_WINDOW (window), 200, 200);
+void activate(GtkApplication *app, gpointer user_data) {
+    GtkWidget *window = gtk_application_window_new(app);
+    gtk_window_set_title(GTK_WINDOW(window), "Window");
+    gtk_window_set_default_size(GTK_WINDOW(window), 200, 200);
     GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_container_add(GTK_CONTAINER(window), vbox);
-    GtkWidget *button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
+    GtkWidget *button_box = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), button_box, TRUE, TRUE, 5);
-    GtkWidget *button = gtk_button_new_with_label ("Start");
-    //TODO free
-    QuestionGenerator *question_generator = question_generator_new();
-    StartCallbackData 
-    g_signal_connect (button, "clicked", G_CALLBACK(start_callback), question_generator);
-    gtk_container_add (GTK_CONTAINER(button_box), button);
-    gtk_widget_show_all (window);
+    GtkWidget *button = gtk_button_new_with_label("Start");
+
+    {
+        CallbackData *callback_data = calloc(1, sizeof(CallbackData));
+        callback_data->vbox = vbox;
+        //TODO free
+        QuestionGenerator *question_generator = question_generator_new();
+        callback_data->question_generator = question_generator;
+        g_signal_connect(button, "clicked", G_CALLBACK(start_callback), callback_data);
+    }
+
+    gtk_container_add(GTK_CONTAINER(button_box), button);
+    gtk_widget_show_all(window);
 }
 
 static void start_callback(GtkWidget *widget, gpointer data) {
-    StartCallbackData* callback_data = (StartCallbackData*) data;
-    clear_form(callback_data->vbox);
+    CallbackData* callback_data = (CallbackData*) data;
     render_question(callback_data->vbox, callback_data->question_generator);
     gtk_widget_show_all(callback_data->vbox);
     free(callback_data);
@@ -76,7 +60,8 @@ static void clear_form(GtkWidget *vbox) {
     g_list_free(first_child);
 }
 
-static void render_question(GtkWidget *vbox, QuestionGenerator *question_generator) {
+static inline void render_question(GtkWidget *vbox, QuestionGenerator *question_generator) {
+    clear_form(vbox);
     Question *question = question_generator_next(question_generator);
     GtkWidget *label = gtk_label_new(question->text->str);
     gtk_box_pack_start(GTK_BOX(vbox), label, TRUE, TRUE, 5);
@@ -94,10 +79,77 @@ static void render_question(GtkWidget *vbox, QuestionGenerator *question_generat
         gtk_box_pack_start(GTK_BOX(vbox), radio, TRUE, TRUE, 5);
     }
 
-    question_free(question);
-
-    GtkWidget *button_box = gtk_button_box_new (GTK_ORIENTATION_HORIZONTAL);
+    GtkWidget *button_box = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_pack_start(GTK_BOX(vbox), button_box, TRUE, TRUE, 5);
-    GtkWidget *button = gtk_button_new_with_label ("Verify");
-    gtk_container_add (GTK_CONTAINER(button_box), button);
+    GtkWidget *button = gtk_button_new_with_label("Verify");
+
+    {
+        CallbackData *callback_data = calloc(1, sizeof(CallbackData));
+        callback_data->vbox = vbox;
+        callback_data->correct_answer_index = question->correct_answer_index;
+        callback_data->question_generator = question_generator;
+        g_signal_connect(button, "clicked", G_CALLBACK(verify_callback), callback_data);
+    }
+
+    gtk_container_add(GTK_CONTAINER(button_box), button);
+    question_free(question);
+}
+
+static void verify_callback(GtkWidget *widget, gpointer data) {
+    CallbackData *callback_data = (CallbackData*) data;
+    render_result(callback_data->vbox, callback_data->correct_answer_index, callback_data->question_generator);
+    gtk_widget_show_all(callback_data->vbox);
+    free(callback_data);
+}
+
+static inline void render_result(GtkWidget *vbox, int correct_answer_index, QuestionGenerator *question_generator) {
+    GSList *radio_buttons = extract_rbuttons(vbox);
+    gboolean success = check_answer(radio_buttons, correct_answer_index);
+    gchar *text = NULL;
+
+    if (success) {
+        text = "Win!";
+    } else {
+        text = "Fail";
+    }
+
+    clear_form(vbox);
+    GtkWidget *label = gtk_label_new(text);
+    gtk_box_pack_start(GTK_BOX(vbox), label, TRUE, TRUE, 5);
+    GtkWidget *button_box = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_box_pack_start(GTK_BOX(vbox), button_box, TRUE, TRUE, 5);
+    GtkWidget *button = gtk_button_new_with_label("Start");
+
+    {
+        CallbackData *callback_data = calloc(1, sizeof(CallbackData));
+        callback_data->vbox = vbox;
+        callback_data->question_generator = question_generator;
+        g_signal_connect(button, "clicked", G_CALLBACK(start_callback), callback_data);
+    }
+
+    gtk_container_add(GTK_CONTAINER(button_box), button);
+}
+
+static inline gboolean check_answer(GSList *radio_button_list, int correct_answer_index) {
+    return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(g_slist_nth_data(radio_button_list, correct_answer_index)));
+}
+
+static inline GSList* extract_rbuttons(GtkWidget *vbox) {
+    GList *child = gtk_container_get_children(GTK_CONTAINER(vbox));
+    GList *first_child = child;
+    GSList *result = NULL;
+
+    while (child != NULL) {
+        GList *next_child = g_list_next(child);
+
+        if (GTK_IS_RADIO_BUTTON(child->data)) {
+            result = gtk_radio_button_get_group(GTK_RADIO_BUTTON(child->data));
+            break;
+        }
+
+        child = next_child;
+    }
+
+    g_list_free(first_child);
+    return result;
 }
