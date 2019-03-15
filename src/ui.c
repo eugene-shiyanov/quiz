@@ -105,6 +105,8 @@ static void verify_callback(GtkWidget *widget, gpointer data) {
 static inline void render_result(GtkWidget *vbox, int correct_answer_index, QuestionGenerator *question_generator) {
     GSList *radio_buttons = extract_rbuttons(vbox);
     gboolean success = check_answer(radio_buttons, correct_answer_index);
+    g_slist_free(radio_buttons);
+    radio_buttons = NULL;
     gchar *text = NULL;
 
     if (success) {
@@ -151,5 +153,7 @@ static inline GSList* extract_rbuttons(GtkWidget *vbox) {
     }
 
     g_list_free(first_child);
+    result = g_slist_copy(result);
+    result = g_slist_reverse(result);
     return result;
 }
