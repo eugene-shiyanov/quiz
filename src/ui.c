@@ -29,8 +29,7 @@ void activate(GtkApplication *app, gpointer user_data) {
     {
         CallbackData *callback_data = calloc(1, sizeof(CallbackData));
         callback_data->vbox = vbox;
-        //TODO free
-        QuestionGenerator *question_generator = question_generator_new();
+        QuestionGenerator *question_generator = (QuestionGenerator*) user_data;
         callback_data->question_generator = question_generator;
         g_signal_connect(button, "clicked", G_CALLBACK(start_callback), callback_data);
     }
